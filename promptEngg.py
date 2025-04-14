@@ -8,6 +8,37 @@ load_dotenv()
 
 client = OpenAI()
 
+def search_google(query, num_results=5):
+    search_api_key = os.environ.get("GOOGLE_SEARCH_KEY")
+    search_engine_id = os.environ.get("GOOGLE_CX")
+
+    print("🔨Tool called: search_google", query)
+
+    url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": search_api_key,
+        "cx": search_engine_id,
+        "q": query,
+        "num": num_results
+    }
+
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    results = []
+
+    if "items" not in data:
+        return "❌ No results found or error in API call"
+    
+    for item in data["items"]:
+        title = item.get("title")
+        snippet = item.get("snippet")
+        link = item.get("link")
+        results.append(f"- {title}\n  {snippet}\n  🔗 {link}")
+    
+    return "\n\n".join(results)
+
+
 def get_weather(city):
     print("🔨Tool called: get_weather", city)
     url = f"https://wttr.in/{city}?format=%C+%t"
@@ -30,6 +61,10 @@ available_tools = {
     "run_command": {
         "fn": run_command,
         "description": "Takes a command to run on users system"
+    },
+    "search_google": {
+        "fn": search_google,
+        "description": "Takes a query and searches on internet and gets the results"
     }
 }
 
@@ -39,6 +74,8 @@ system_prompt = f"""
     For the given user query and available tools, plan the step by step execution based on planning,
     select a relevant tool from the available tools, and based on the tool selection you perform an action to call the tool.
     Wait for the observation and based on it from the tool cal the user query.
+    If you see the query is about current events going on, trending topics in the world, or anything time-sensitive, prefer using `search_google`.
+
 
     Rules:
     - Follow the output JSON format
@@ -56,6 +93,7 @@ system_prompt = f"""
     Available tools: 
     - get_weather: Takes a city name as an input and returns the current weather for the city
     - run_command: Takes a command to run on users system
+    - search_google: Takes a query and searches on internet and gets the top 5 results
 
     Example: 
         User query: What is the weather of chicago?
